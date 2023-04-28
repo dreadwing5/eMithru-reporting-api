@@ -19,6 +19,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:8000",
     "http://localhost:8080",
+    "https://report-generator-api.onrender.com"
 ]
 
 app.add_middleware(
