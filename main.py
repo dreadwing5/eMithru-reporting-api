@@ -37,7 +37,7 @@ class Data(BaseModel):
 
 def create_styled_excel(data: List[Dict[str, any]], filename: str) -> None:
     df = pd.DataFrame(data)
-    df = df.reindex(columns=['title', 'tag', 'participants', 'state', 'openDate', 'closeDate','createdBy','description'])
+    df = df.reindex(columns=['title', 'topic', 'participants', 'status', 'createdAt', 'closedAt','author','description'])
 
     header_style = NamedStyle(name="header")
     header_style.font = Font(bold=True, size=16)
