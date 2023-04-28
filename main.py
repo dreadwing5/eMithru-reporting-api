@@ -87,6 +87,11 @@ def create_styled_excel(data: List[Dict[str, any]], filename: str) -> None:
     wb.save('data.xlsx')
 
 
+
+@app.get("/")
+
+async def root():
+    return "Hello World"
 @app.post("/generate_excel")
 async def generate_excel(data: List[Dict]):
     try:
