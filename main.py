@@ -1,15 +1,31 @@
-from typing import Union
-
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+import os
+from datetime import datetime
+from interaction_report import ExcelReportGenerator
+from email_sender import EmailSender
+from attendance_report import AttendanceReportGenerator
 from pydantic import BaseModel
-from typing import Dict, List
-import pandas as pd
-from openpyxl import Workbook
-from openpyxl.styles import NamedStyle, Font, PatternFill, Alignment
-from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.utils import get_column_letter
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException
+from typing import Dict, List
+from dotenv import load_dotenv
+load_dotenv()
+
+
+new_column_names = {
+    'title': 'Title',
+    'topic': 'Topic',
+    'participants': 'Participants',
+    'status': 'Status',
+    'createdAt': 'Created At',
+    'closedAt': 'Closed At',
+    'author': 'Author',
+    'description': 'Description'
+}
+
+columns_order = ['title', 'topic', 'participants', 'status',
+                 'createdAt', 'closedAt', 'author', 'description']
+
 
 app = FastAPI()
 
@@ -19,7 +35,9 @@ origins = [
     "http://localhost:3000",
     "http://localhost:8000",
     "http://localhost:8080",
-    "https://report-generator-api.onrender.com"
+    "https://report-generator-api.onrender.com",
+    "https://cmrit-mentoring-api.onrender.com",
+    "https://cmrit-mentoring-tool-frontend-dreadwing5.vercel.app"
 ]
 
 app.add_middleware(
@@ -31,67 +49,38 @@ app.add_middleware(
 )
 
 
-
 class Data(BaseModel):
     data: Dict[str, List[int]]
-
-def create_styled_excel(data: List[Dict[str, any]], filename: str) -> None:
-    df = pd.DataFrame(data)
-    df = df.reindex(columns=['title', 'topic', 'participants', 'status', 'createdAt', 'closedAt','author','description'])
-
-    header_style = NamedStyle(name="header")
-    header_style.font = Font(bold=True, size=16)
-    header_style.alignment = Alignment(horizontal='center')
-    header_style.fill = PatternFill(fill_type='solid', fgColor='FFFF00')
-
-
-    # Create a new workbook and add a worksheet
-    wb = Workbook()
-    ws = wb.active
-
-    # Convert the DataFrame to rows and write to the worksheet
-    for r in dataframe_to_rows(df, index=False, header=True):
-        ws.append(r)
-
-    # Apply the header style to the header row
-    for col in range(1, len(data[0]) + 1):
-        cell = ws[get_column_letter(col) + '1']
-        cell.value = cell.value.upper()
-        cell.style = header_style
-
-    # Set the width and height of each column based on the content
-    for row in ws.iter_rows(min_row=2):
-        ws.row_dimensions[row[0].row].height = 75
-
-    desc_col = get_column_letter(df.columns.get_loc('description') + 1)
-    for cell in ws[desc_col][1:]:
-        cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True, shrink_to_fit=True)
-
-    for col in ws.columns:
-            max_length = 0
-            column = col[0].column_letter
-
-            # Find the maximum length of the content in the column
-            for cell in col:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except TypeError:
-                    pass
-
-            # Set the width of the column based on the maximum length of the content
-            adjusted_width = max_length + 2
-            ws.column_dimensions[column].width = min(adjusted_width, 100)
-
-    # Save the workbook to an Excel file
-    wb.save('data.xlsx')
 
 
 @app.post("/generate_excel")
 async def generate_excel(data: List[Dict]):
     try:
-        create_styled_excel(data, "data.xlsx")
+        report = ExcelReportGenerator(data, "data.xlsx")
+        report.reindex_and_rename_columns(columns_order, new_column_names) \
+            .apply_datetime_conversion(datetime_columns=['Created At', 'Closed At'], date_format='%Y-%m-%dT%H:%M:%S.%fZ')\
+              .create_excel_report()
+
         return FileResponse("data.xlsx", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename="data.xlsx")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_attendance_report")
+async def generate_attendance_report(data: Dict):
+    try:
+        report = AttendanceReportGenerator(data, "attendance_report.xlsx")
+        report.generate_report()
+        sender_email = os.getenv("MAIL_ID")
+        sender_password = os.getenv("MAIL_PASS")
+        subject = "Monthly Interaction Report"
+        body = "Please find the monthly interaction report attached."
+        recipients = ["immortalosborn@gmail.com"]
+        attachment = "attendance_report.xlsx"
+        email_sender = EmailSender(
+            sender_email, sender_password, subject, body, recipients, attachment)
+        email_sender.send_email()
+        return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
