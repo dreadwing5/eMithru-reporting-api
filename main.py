@@ -53,6 +53,7 @@ class Data(BaseModel):
     data: Dict[str, List[int]]
 
 
+# FIXME : remove hardcoded values, figure out way to reuse the email component
 @app.post("/generate_excel")
 async def generate_excel(data: List[Dict]):
     try:
@@ -65,11 +66,11 @@ async def generate_excel(data: List[Dict]):
         subject = "Monthly Interaction Report"
         body = "Please find the monthly interaction report attached."
         recipients = ["immortalosborn@gmail.com"]
-        attachment = "attendance_report.xlsx"
+        attachment = "data.xlsx"
         email_sender = EmailSender(
             sender_email, sender_password, subject, body, recipients, attachment)
         email_sender.send_email()
-        return {"status": "success"}
+        return FileResponse("data.xlsx", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename="data.xlsx")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -82,7 +83,7 @@ async def generate_attendance_report(data: Dict):
         sender_email = os.getenv("MAIL_ID")
         sender_password = os.getenv("MAIL_PASS")
         subject = "Monthly Interaction Report"
-        body = "Please find the monthly attendance report attached."
+        body = "Please find the monthly interaction report attached."
         recipients = ["immortalosborn@gmail.com"]
         attachment = "attendance_report.xlsx"
         email_sender = EmailSender(
