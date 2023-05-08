@@ -23,10 +23,10 @@ class EmailSender:
         msg['To'] = ', '.join(self.recipients)
         msg['Subject'] = self.subject
         msg.attach(MIMEText(self.body, 'plain'))
-
         if self.attachment:
             with open(self.attachment, 'rb') as attachment_file:
                 attachment_payload = MIMEBase('application', 'octet-stream')
+
                 attachment_payload.set_payload(attachment_file.read())
             encoders.encode_base64(attachment_payload)
             attachment_payload.add_header(

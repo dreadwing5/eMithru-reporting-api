@@ -1,13 +1,17 @@
-import os
-from datetime import datetime
-from interaction_report import ExcelReportGenerator
+from email_controller import EmailController
+from email_template import EmailTemplate
 from email_sender import EmailSender
-from attendance_report import AttendanceReportGenerator
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi import FastAPI, HTTPException
 from typing import Dict, List
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from attendance_report import AttendanceReportGenerator
+from interaction_report import ExcelReportGenerator
+
+from datetime import datetime
+import os
+import sys
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -61,15 +65,15 @@ async def generate_excel(data: List[Dict]):
         report.reindex_and_rename_columns(columns_order, new_column_names) \
             .apply_datetime_conversion(datetime_columns=['Created At', 'Closed At'], date_format='%Y-%m-%dT%H:%M:%S.%fZ')\
               .create_excel_report()
-        sender_email = os.getenv("MAIL_ID")
-        sender_password = os.getenv("MAIL_PASS")
-        subject = "Monthly Interaction Report"
-        body = "Please find the monthly interaction report attached."
-        recipients = ["immortalosborn@gmail.com"]
-        attachment = "data.xlsx"
-        email_sender = EmailSender(
-            sender_email, sender_password, subject, body, recipients, attachment)
-        email_sender.send_email()
+
+        email_controller = EmailController()
+        hod_name = "immortalosborn@gmail.com"
+        report_file_name = "data.xlsx"
+
+        email_template = EmailTemplate(
+            hod_name=hod_name, report_file_path=report_file_name)
+
+        email_controller.send_email(email_template)
         return FileResponse("data.xlsx", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename="data.xlsx")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
